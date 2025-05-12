@@ -1,0 +1,66 @@
+#  Customise Properties Used in Searches
+
+!!! note
+    The PnP Modern Search Web Parts must be deployed to your App Catalog and activated on your site. See the [installation documentation](../installation.md) for details.
+
+This scenario describes how to customise which Properties would be included in any searches. If the search results returned were not accurate, it may be due to the search looking at a property that is unexpected. For example, a user could fill out their Profile "Schools" and this gets pulled into the search results, which may result in a search of "London" returning a few users which only went to school in London. It may be required to customise the properties when wanting a search that only looks at Names and JobTitles (as another example).
+
+This Document has been created from a discussion topic with this error: https://github.com/microsoft-search/pnp-modern-search/discussions/4004
+
+## PNP Property Management
+In the PNP Search Modules, the only way to "exclude" properties, is to edit the Query Template (Search Results Web Part) and expressly note which properties you wanted to exclude:
+
+  ( ({SearchTerms}*) AND NOT Office:({searchTerms}*) AND NOT AboutMe:({searchTerms}*)  )
+
+Alternatively, you could search for only the properties you wanted to include.
+
+  FirstName:({searchTerms}*) OR LastName:({searchTerms}*) OR JobTitle:({searchTerms}*)
+
+These work well, until you wanted to search 2 Terms. At this point there is an error where each Word is an individual Search Term, so all terms must match to meet the criteria. 
+- For the "Exclusion" Example "Brian Tokyo" would find Tokyo in the Office column, so you would expect them to not be returned, but they would as both Brian and Tokyo are not in the Office Property.
+- For the "Include" Example "Brian Tokyo" would not find a person called Bryan Tokyo, as the firstName matches Brian and the LastName matches Tokyo, but both terms do not match the same property.
+
+## What is the solution?
+The solution lies outsdie of PnP Modern Search. We would create a new Searchable Managed Property in the SharePoint Admin Console and use this property in the Query Template (Search Results web part).
+
+## How to Create A Managed Property
+
+Navigate to SharePoint Admin Console:  https://{CompanyName}.sharepoint.com/_layouts/15/online/AdminHome.aspx#/home
+Click More Features
+Click Open (Under the Heading of Search)
+Click Manage Search Schema
+Then click on New Managed Property
+
+I will use the Example of PnPPeopleCriteria below (feel free to use your own name)
+Also it may be worth adding a description, so other admins know the purpose of this Property and will not edit it.
+
+Under Main Characteristics, click the tickbox for "Searchable"
+There is also a tickbox for "Sortable", this is optional.
+
+Under Mappings to Crawled Properties choose the "include content from all crawled properties"
+Next Add a mapping. you could add all from the "People" category, or look which Managed Properties you want and which crawled properties feed into them.
+
+Note, if you are using this for sorting, the sort order is determined by the order the Properties are listed, move the order if desired. 
+  An example property value is "Bryan/n/nHope/n/nAccounts", if a user did not have a first name the Property value would be "Hope/n/nAccounts". Bear this in mind, when sorting on this property.
+
+## Using the New Property
+This will not be instantaneous, as will take some time for the new property to propagate through. We have a few opions avaialble:
+ - Perform a search of PNPPeopleCriteria:* this will return all People that have this property. Compare this to the expected list of results available (example searching *). When these match you can then move to updating the People Search page.
+ - Search for scripts on how to force update the Profiles with the new property (e.g. https://www.techmikael.com/2014/12/how-to-trigger-re-indexing-of-user.html or https://github.com/wobba/SPO-Trigger-Reindex)
+
+Edit the Query Template to only reference the new property (Keeping any exclusion rules you have in place):
+
+  PNPPeopleCriteria:({SearchTerms}*)
+
+Note, the * Applies only to the last Term entered not both, so this may need reviewing if you do not intend this behaviour.
+
+## Editing The Managed Property
+Editing the Property is as straightforward as Creating a property, with a small difference. Once the property has been created and pushed out to a few users you cannot measure who has the updated property and who has got the original property. 
+
+So if using the slow roll-out process above, we would need to create a 2nd property (e.g. PnPPeopleCriteria_Test), which we would populate with one or 2 properties.
+We would then use the SearchTerm "-PnPPeopleCriteria_Test:*" to see how many profiles are missing the Secondary Property, when this reaches 0, then all users have This second property.
+
+If the PnPPeopleCriteria_Test has a value and is currently on all user profiles. We would edit the managed property to have no Properties in it, and this will remove it from users.
+We Would then Search for the SearchTerm "PnPPeopleCriteria_Test:*" to see how many profiles have the Secondary Property, wen this reaches 0, then all users will not have the second property
+
+The idea is that if a user has the PnPPeopleCriteria_Test property at this point, we can monitor which users have also got the updated Original Property.
